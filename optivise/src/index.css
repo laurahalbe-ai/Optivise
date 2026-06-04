@@ -1,0 +1,159 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --font: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  --bg:       #0C0C0F;
+  --bg-1:     #131318;
+  --bg-2:     #1A1A22;
+  --bg-3:     #22222D;
+  --border:   rgba(255,255,255,0.07);
+  --border-2: rgba(255,255,255,0.12);
+
+  --text:     #F0F0F5;
+  --text-2:   #9494A8;
+  --text-3:   #5A5A72;
+
+  --purple:   #7B6EF6;
+  --purple-2: #9B91F8;
+  --purple-bg:#7B6EF615;
+
+  --green:    #34D399;
+  --green-bg: #34D39915;
+  --red:      #F87171;
+  --red-bg:   #F8717115;
+  --amber:    #FBBF24;
+  --amber-bg: #FBBF2415;
+  --blue:     #60A5FA;
+  --blue-bg:  #60A5FA15;
+
+  --radius:   10px;
+  --radius-lg:14px;
+  --radius-xl:20px;
+
+  --shadow:   0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  --shadow-lg:0 4px 24px rgba(0,0,0,.5);
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 2px; }
+
+/* inputs */
+input, select, textarea, button {
+  font-family: var(--font);
+  font-size: 13px;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--purple);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-3);
+}
+select option { background: var(--bg-2); }
+textarea { resize: vertical; }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 9px 16px; border-radius: var(--radius); border: none;
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--purple); color: #fff;
+}
+.btn-primary:hover { background: var(--purple-2); }
+.btn-primary:disabled { background: var(--bg-3); color: var(--text-3); cursor: not-allowed; }
+.btn-secondary {
+  background: var(--bg-2); color: var(--text); border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--bg-3); border-color: var(--border-2); }
+.btn-ghost {
+  background: none; color: var(--text-2); border: none;
+}
+.btn-ghost:hover { color: var(--text); background: var(--bg-2); }
+.btn-danger {
+  background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bg);
+}
+.btn-danger:hover { background: #F8717125; }
+.btn-full { width: 100%; }
+.btn-lg { padding: 12px 20px; font-size: 14px; border-radius: var(--radius-lg); }
+
+/* card */
+.card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+/* label */
+.label {
+  font-size: 11px; font-weight: 500; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: .06em;
+  display: block; margin-bottom: 6px;
+}
+
+/* badge */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500; padding: 2px 8px;
+  border-radius: 20px;
+}
+.badge-error   { background: var(--red-bg);    color: var(--red); }
+.badge-warning { background: var(--amber-bg);  color: var(--amber); }
+.badge-cro     { background: var(--blue-bg);   color: var(--blue); }
+.badge-ci      { background: var(--purple-bg); color: var(--purple-2); }
+.badge-copy    { background: var(--green-bg);  color: var(--green); }
+
+/* divider */
+.divider {
+  height: 1px; background: var(--border); margin: 16px 0;
+}
+
+/* spinner */
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border-2);
+  border-top-color: var(--purple);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+.spinner-lg {
+  width: 36px; height: 36px; border-width: 3px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* fade-in */
+.fade-in {
+  animation: fadeIn .25s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,114 @@
+.wrap { min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; }
+
+.header {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+}
+.clientInfo { display: flex; align-items: center; gap: 9px; }
+.ava { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+.clientName { font-size: 13px; font-weight: 500; }
+
+.main {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 32px 20px 40px;
+}
+
+/* Upload */
+.uploadWrap { width: 100%; max-width: 560px; }
+.uploadTitle { font-size: 20px; font-weight: 600; letter-spacing: -.03em; margin-bottom: 6px; text-align: center; }
+.uploadSub { font-size: 13px; color: var(--text-2); margin-bottom: 24px; text-align: center; }
+
+.dropGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+
+.dropZone {
+  background: var(--bg-1);
+  border: 1.5px dashed var(--border-2);
+  border-radius: var(--radius-lg);
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  min-height: 160px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+}
+.dropZone:hover, .dropDrag { border-color: var(--purple); background: var(--purple-bg); }
+.dropHas { border-style: solid; border-color: var(--border-2); }
+.dropIcon { font-size: 28px; }
+.dropLabel { font-size: 13px; font-weight: 500; }
+.dropSub { font-size: 11px; color: var(--text-3); }
+.thumbRow { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+.thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border); }
+.dropBadge { font-size: 11px; font-weight: 500; color: var(--green); background: var(--green-bg); padding: 2px 8px; border-radius: 20px; }
+.fileChip { background: var(--bg-3); border: none; color: var(--text-2); padding: 2px 6px; border-radius: 5px; font-size: 10px; cursor: pointer; margin: 2px; font-family: var(--font); }
+.fileChip:hover { background: var(--red-bg); color: var(--red); }
+
+.auditBtn { margin-top: 4px; }
+
+/* Analyzing */
+.analyzingWrap { width: 100%; max-width: 400px; text-align: center; padding: 40px 0; }
+.analyzeImgs { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
+.analyzeThumb { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); animation: pulse 1.5s ease-in-out infinite; }
+.analyzeThumb:nth-child(2) { animation-delay: .2s; }
+.analyzeThumb:nth-child(3) { animation-delay: .4s; }
+.analyzeThumb:nth-child(4) { animation-delay: .6s; }
+@keyframes pulse { 0%,100%{opacity:.4}50%{opacity:1} }
+.analyzeTitle { font-size: 17px; font-weight: 500; margin-bottom: 8px; }
+.analyzeStep { font-size: 13px; color: var(--text-2); }
+
+/* Result */
+.resultWrap { width: 100%; max-width: 580px; }
+
+.verdict {
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  display: flex; align-items: flex-start; gap: 16px;
+  margin-bottom: 16px;
+}
+.verdictApproved { background: var(--green-bg); border: 1.5px solid rgba(52,211,153,.3); }
+.verdictRejected { background: var(--red-bg); border: 1.5px solid rgba(248,113,113,.3); }
+.verdictIcon {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.verdictApproved .verdictIcon { color: var(--green); }
+.verdictRejected .verdictIcon { color: var(--red); }
+.verdictLabel { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.verdictApproved .verdictLabel { color: var(--green); }
+.verdictRejected .verdictLabel { color: var(--red); }
+.verdictHeadline { font-size: 15px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 5px; line-height: 1.35; }
+.verdictApproved .verdictHeadline { color: #a7f3d0; }
+.verdictRejected .verdictHeadline { color: #fca5a5; }
+.verdictReason { font-size: 12px; line-height: 1.6; opacity: .85; }
+
+.scoreRow { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.scoreNum { font-size: 28px; font-weight: 600; width: 40px; flex-shrink: 0; }
+.scoreTrack { flex: 1; height: 5px; background: var(--bg-3); border-radius: 3px; overflow: hidden; }
+.scoreFill { height: 100%; border-radius: 3px; transition: width .8s ease; }
+.scoreLbl { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+
+.issueGroup { margin-bottom: 18px; }
+.groupHeader {
+  font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text-2); display: flex; align-items: center; gap: 6px;
+  margin-bottom: 8px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.issue {
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 8px;
+}
+.issueTop { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.issueTitle { font-size: 12px; font-weight: 500; flex: 1; line-height: 1.4; }
+.issueBody { font-size: 12px; color: var(--text-2); line-height: 1.6; margin-bottom: 8px; }
+.fix { font-size: 11px; padding: 8px 10px; background: var(--bg-2); border-radius: var(--radius); border-left: 2px solid var(--purple); line-height: 1.5; color: var(--text-2); }
+.fixLbl { font-size: 10px; font-weight: 600; color: var(--purple-2); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .04em; }
+
+.actions { display: flex; gap: 10px; margin-top: 8px; padding-bottom: 24px; }
+.actions .btn { flex: 1; }
