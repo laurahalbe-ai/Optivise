@@ -468,31 +468,19 @@ Antworte NUR mit JSON (keine Backticks):
                   <div className={styles.groupHeader}>
                     <span>{catIcons[cat] || '📋'}</span> {cat}
                   </div>
-                  {issues.map((iss, i) => {
-                    const thumb = iss.imageType === 'lp'
-                      ? lpB64[iss.imageIndex ?? 0]?.url
-                      : iss.imageType === 'cr'
-                      ? crB64[iss.imageIndex ?? 0]?.url
-                      : null
-                    return (
-                      <div key={i} className={styles.issue}>
-                        <div className={styles.issueTop}>
-                          <span className={`badge ${badgeMap[iss.type]?.[0] || 'badge-warning'}`}>{badgeMap[iss.type]?.[1] || iss.type}</span>
-                          <span className={styles.issueTitle}>{iss.title}</span>
-                        </div>
-                        {thumb && (
-                          <div className={styles.issueThumbWrap}>
-                            <img src={thumb} className={styles.issueThumb} alt="Referenz" />
-                          </div>
-                        )}
-                        <p className={styles.issueBody}>{iss.description}</p>
-                        <div className={styles.fix}>
-                          <div className={styles.fixLbl}>So beheben</div>
-                          {iss.fix}
-                        </div>
+                  {issues.map((iss, i) => (
+                    <div key={i} className={styles.issue}>
+                      <div className={styles.issueTop}>
+                        <span className={`badge ${badgeMap[iss.type]?.[0] || 'badge-warning'}`}>{badgeMap[iss.type]?.[1] || iss.type}</span>
+                        <span className={styles.issueTitle}>{iss.title}</span>
                       </div>
-                    )
-                  })}
+                      <p className={styles.issueBody}>{iss.description}</p>
+                      <div className={styles.fix}>
+                        <div className={styles.fixLbl}>So beheben</div>
+                        {iss.fix}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))
             })()}
