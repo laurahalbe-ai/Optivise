@@ -1,0 +1,133 @@
+// Vercel Serverless Function – analyzes uploaded LP screenshots and creatives
+export const config = { maxDuration: 30 }
+
+const CR_CHECKS = (c) => `CREATIVES – prüfe exakt diese Punkte für jedes Creative-Bild:
+1. Keine Rechtschreibfehler im sichtbaren Text
+2. CI-Farben korrekt: Primär ${c.color_primary}, Sekundär ${c.color_secondary}, Akzent ${c.color_accent}
+3. Logo entspricht Corporate Design
+4. Schriftart "${c.font||'CI-Schrift'}" verwendet
+5. Maximal 2 verschiedene Schriftarten
+6. Buchstabenabstände einheitlich
+7. Zeilenabstände einheitlich
+8. Hoher Kontrast bei übereinanderliegenden Farben/Texten
+9. Texte bündig oder zentriert mit anderen Elementen ausgerichtet
+10. Overlays gehen bis zu den Bildrändern (keine schmalen Ränder sichtbar)
+11. Kein Waisenkind (einzelnes Wort in letzter Zeile)
+12. Format korrekt: quadratisch 1:1 (1080×1080px) oder Story 9:16 (1080×1920px) – Seitenverhältnis visuell prüfen
+13. Kein Maus-klickt-Button, kein Play-Button dargestellt
+14. Schriftgröße mind. 22px (visuell einschätzen)
+15. Keine unnötigen leeren Flächen
+16. Schrift gut lesbar, nicht zu verschnörkelt
+17. Maximal 3 verschiedene Schriftgrößen`
+
+const LP_CHECKS = (c) => `LANDINGPAGE – prüfe diese Punkte visuell:
+1. Kein Onepage-Branding sichtbar
+2. CI-Farben korrekt: Primär ${c.color_primary}, Sekundär ${c.color_secondary}, Akzent ${c.color_accent}
+3. Logo entspricht Corporate Design
+4. Schriftart "${c.font||'CI-Schrift'}" verwendet, max. 2 Schriftarten
+5. Kein Waisenkind (einzelnes Wort letzte Zeile)
+6. Headlines max. 2 Zeilen, deutlich größer/dicker als Fließtext
+7. Hoher Farbkontrast bei übereinanderliegenden Elementen
+8. Abstände zwischen Elementen einheitlich
+9. Max. 1 hervorgehobene Stelle pro Headline
+10. Keine leeren Flächen im 2-Spalten-Layout
+11. Buttons einheitlich
+12. CTA above the fold sichtbar
+13. Keine Platzhaltertexte sichtbar`
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') return res.status(200).end()
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
+  const { client, lpImages = [], crImages = [] } = req.body || {}
+  const ANTHROPIC_KEY = process.env.VITE_ANTHROPIC_API_KEY
+  const c = client || {}
+  const tones = (c.tones || []).join(', ') || 'n/a'
+
+  try {
+    const parts = []
+
+    const prompt = `Du bist ein erfahrener QA-Experte für Landing Pages und Ad Creatives. Du gibst klares, direktes Feedback und entscheidest ob die Materialien freigegeben werden dürfen.
+
+KUNDENPROFIL:
+- Kunde: ${c.name || 'unbekannt'} | Branche: ${c.industry || 'n/a'}
+- Zielgruppe: ${c.audience || 'n/a'} | LP-Ziel: ${c.goal || 'n/a'}
+- USP: ${c.usp || 'n/a'}
+- CI-Farben: Primär ${c.color_primary || 'n/a'}, Sekundär ${c.color_secondary || 'n/a'}, Akzent ${c.color_accent || 'n/a'}
+- Schrift: ${c.font || 'n/a'} | Tonalität: ${tones}
+- Verbote: ${c.donts || 'keine'}
+
+${lpImages.length > 0 ? LP_CHECKS(c) : ''}
+${crImages.length > 0 ? CR_CHECKS(c) : ''}
+
+Prüfe zusätzlich CRO: CTA-Positionierung, Social Proof, Headline-Stärke, Trust-Elemente.
+Prüfe Copywriting auf Markenstimme: ${tones}
+
+Analysiere die beigefügten Bilder genau. Beschreibe konkret was du siehst.
+
+FREIGABE-LOGIK:
+- FREIGABE (approved: true): max. 2 Warnungen, keine Fehler, keine CI-Abweichungen
+- KEINE FREIGABE (approved: false): bei Fehlern, CI-Problemen oder Platzhaltern
+
+Antworte NUR mit diesem JSON (keine Backticks, kein Text davor/danach):
+{
+  "approved": true/false,
+  "verdict_headline": "<1 klarer Satz>",
+  "verdict_reason": "<1-2 Sätze direkte Begründung>",
+  "score": <1-100>,
+  "issues": [
+    {
+      "type": "error|warning|cro|ci|copy",
+      "category": "LP|Creative|CI|CRO|Copy",
+      "title": "<kurzer Titel>",
+      "description": "<was konkret im Bild zu sehen ist, 1-2 Sätze>",
+      "fix": "<konkrete Maßnahme>"
+    }
+  ]
+}`
+
+    parts.push({ type: 'text', text: prompt })
+
+    lpImages.forEach((img, i) => {
+      parts.push({ type: 'text', text: `LP-Screenshot ${i+1}: ${img.name}` })
+      parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
+    })
+
+    crImages.forEach((img, i) => {
+      parts.push({ type: 'text', text: `Creative ${i+1}: ${img.name}` })
+      parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
+    })
+
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: parts }]
+      })
+    })
+
+    const claudeData = await claudeRes.json()
+    const txt = claudeData.content?.map(b => b.text || '').join('') || ''
+
+    let parsed
+    try {
+      parsed = JSON.parse(txt.replace(/```json|```/g, '').trim())
+    } catch {
+      parsed = null
+    }
+
+    return res.status(200).json({ success: true, result: parsed })
+
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
+  }
+}
