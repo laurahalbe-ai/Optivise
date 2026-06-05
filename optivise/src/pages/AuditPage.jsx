@@ -140,9 +140,21 @@ export default function AuditPage() {
 
   function readAsB64(file) {
     return new Promise(res => {
-      const r = new FileReader()
-      r.onload = e => res({ name: file.name, type: file.type, data: e.target.result.split(',')[1], url: e.target.result })
-      r.readAsDataURL(file)
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        // Resize to max 1200px wide to stay under Vercel 4.5MB limit
+        const MAX = 900
+        let w = img.width, h = img.height
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX }
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.72)
+        URL.revokeObjectURL(url)
+        res({ name: file.name, type: 'image/jpeg', data: dataUrl.split(',')[1], url: dataUrl })
+      }
+      img.src = url
     })
   }
 
