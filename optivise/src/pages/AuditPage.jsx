@@ -218,7 +218,7 @@ ${lpB64.length > 0 ? `LANDING PAGE CHECKLISTE:
 
 ${crB64.length > 0 ? `CREATIVES CHECKLISTE:
 □ Keine Rechtschreibfehler | □ CI-Farben korrekt (${c.color_primary}, ${c.color_secondary}, ${c.color_accent})
-□ Schrift "${c.font||'n/a'}" | □ Max. 2 Schriftarten | □ Max. 3 Schriftgrößen | □ Schrift mind. 22px
+□ Schrift "${c.font||'n/a'}" | □ Max. 2 Schriftarten | □ Max. 3 Schriftgrößen | □ Schrift wirkt ausreichend groß und gut lesbar (keine genauen px nennen – nur visuell bewerten)
 □ Hoher Kontrast | □ Texte bündig/zentriert | □ Overlays bis zum Rand | □ Kein Waisenkind
 □ Format 1:1 oder 9:16 | □ Kein Play-Button | □ Keine leeren Flächen | □ Schrift lesbar` : ''}
 
@@ -229,9 +229,21 @@ CONVERSION-ANALYSE (immer prüfen):
 - Headline überzeugend für die Zielgruppe?
 - Emotionaler Ton passend?
 
-FREIGABE: approved=true nur bei max. 2 Warnungen, keinen Fehlern.
+WICHTIGE HINWEISE ZUR BEURTEILUNG:
+- Sei wohlwollend und professionell – du bist ein erfahrener Experte, kein Perfektionist. Kleine Unschönheiten sind kein Grund zur Ablehnung.
+- Kontrast: Bemängle Kontrast NUR wenn Text wirklich unleserlich ist. Designentscheidungen wie dunkler Text auf dunklem Hintergrund mit bewusstem Styling sind kein Fehler.
+- Schriftgrößen: Keine px-Zahlen nennen – nur bewerten ob etwas wirklich unleserlich wirkt.
+- CI-Farben: Nur als Fehler markieren wenn die Abweichung deutlich sichtbar und eindeutig falsch ist – nicht bei leichten Helligkeitsunterschieden oder Schatten.
+- Wenn du dir nicht 100% sicher bist → type="hint". Hints zählen nicht zur Ablehnung.
+- Nur was du klar und eindeutig als Problem erkennst wird als error oder warning markiert.
+- Das Ziel ist schnelle Freigabe – nicht perfekte Perfektion. Weise auf Verbesserungen hin, aber blockiere nicht unnötig.
+
+FREIGABE-LOGIK:
+- approved=true: keine eindeutigen Fehler, max. 2 Warnungen (Hints zählen nicht)
+- approved=false: nur bei wirklich klaren, eindeutigen Fehlern oder mehr als 2 echten Warnungen
+
 Antworte NUR mit JSON (keine Backticks):
-{"approved":true,"verdict_headline":"1 Satz","verdict_reason":"1-2 Sätze","score":85,"issues":[{"type":"error|warning|cro|ci|copy","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"was du konkret siehst","fix":"konkrete Maßnahme"}]}`
+{"approved":true,"verdict_headline":"1 Satz","verdict_reason":"1-2 Sätze","score":85,"issues":[{"type":"error|warning|cro|ci|copy|hint","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"was du konkret siehst","fix":"konkrete Maßnahme"}]}`
 
       const parts = [{ type: 'text', text: prompt }]
       lpB64.forEach((img, i) => {
@@ -292,7 +304,7 @@ Antworte NUR mit JSON (keine Backticks):
   }
 
   const catIcons = { LP: '🖥', Creative: '🎨', CI: '🎯', CRO: '📈', Copy: '✍️', Allgemein: '📋' }
-  const badgeMap = { error: ['badge-error','Fehler'], warning: ['badge-warning','Warnung'], cro: ['badge-cro','CRO'], ci: ['badge-ci','CI'], copy: ['badge-copy','Copy'] }
+  const badgeMap = { error: ['badge-error','Fehler'], warning: ['badge-warning','Warnung'], cro: ['badge-cro','CRO'], ci: ['badge-ci','CI'], copy: ['badge-copy','Copy'], hint: ['badge-hint','Hinweis'] }
 
   if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}><div className="spinner spinner-lg"/></div>
   if (!client) return <div style={{padding:40,textAlign:'center',color:'var(--text-2)'}}>Kunde nicht gefunden.</div>
