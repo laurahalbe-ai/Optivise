@@ -187,49 +187,23 @@ export default function AuditPage() {
         return
       }
 
-      // File upload mode: call Anthropic Vision directly
-      const prompt = `Du bist ein erfahrener QA-Experte für Landing Pages und Ad Creatives. Klares, direktes Feedback.
-
-KUNDENPROFIL:
-- Kunde: ${c.name || 'unbekannt'} | Branche: ${c.industry || 'n/a'}
-- Zielgruppe: ${c.audience || 'n/a'} | LP-Ziel: ${c.goal || 'n/a'}
-- CI-Farben: Primär ${c.color_primary || 'n/a'}, Sekundär ${c.color_secondary || 'n/a'}, Akzent ${c.color_accent || 'n/a'}
-- Schrift: ${c.font || 'n/a'} | Tonalität: ${tones}
-- Verbote: ${c.donts || 'keine'}
-
-${lpB64.length > 0 ? 'LANDINGPAGE: CI-Farben, Schrift, kein Onepage-Branding, kein Waisenkind, Headlines max. 2 Zeilen, Kontrast, Abstände, CTA above fold, keine Platzhalter, Buttons einheitlich.' : ''}
-${crB64.length > 0 ? 'CREATIVES: Rechtschreibung, CI-Farben, Schrift, Kontrast, Format 1:1 oder 9:16, kein Play-Button, Schrift mind. 22px, keine leeren Flächen, max. 3 Schriftgrößen.' : ''}
-CRO und Copy prüfen. Tonalität: ${tones}.
-
-FREIGABE wenn max. 2 Warnungen, keine Fehler. Sonst KEINE FREIGABE.
-Antworte NUR mit JSON ohne Backticks:
-{"approved":true,"verdict_headline":"...","verdict_reason":"...","score":85,"issues":[{"type":"error|warning|cro|ci|copy","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"...","fix":"..."}]}`
-
-      const msgParts = [{ type: 'text', text: prompt }]
-      lpB64.forEach((img, i) => {
-        msgParts.push({ type: 'text', text: `LP-Screenshot ${i+1}:` })
-        msgParts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
-      })
-      crB64.forEach((img, i) => {
-        msgParts.push({ type: 'text', text: `Creative ${i+1}:` })
-        msgParts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
-      })
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      // File upload mode: route through Vercel API proxy
+      const res = await fetch('/api/analyze-files', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages: [{ role: 'user', content: msgParts }] })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client: c,
+          lpImages: lpB64.map(b => ({ name: b.name, type: b.type, data: b.data })),
+          crImages: crB64.map(b => ({ name: b.name, type: b.type, data: b.data }))
+        })
       })
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(`API Fehler ${res.status}: ${errText.slice(0, 200)}`)
+      }
       const data = await res.json()
       clearInterval(iv)
-      const txt = data.content?.map(b => b.text || '').join('') || ''
-      let parsed
-      try { parsed = JSON.parse(txt.replace(/```json|```/g, '').trim()) } catch { parsed = null }
-      setResult(parsed || { approved: false, verdict_headline: 'Antwort konnte nicht verarbeitet werden.', verdict_reason: txt.slice(0, 300) || 'Leere Antwort.', score: 0, issues: [] })
+      setResult(data.result || { approved: false, verdict_headline: 'Keine Antwort erhalten.', verdict_reason: data.error || 'Unbekannter Fehler.', score: 0, issues: [] })
     } catch(e) {
       clearInterval(iv)
       setResult({ approved: false, verdict_headline: 'Analyse fehlgeschlagen.', verdict_reason: e.message || 'Unbekannter Fehler.', score: 0, issues: [{ type: 'error', category: 'Technisch', title: 'Fehler', description: e.message, fix: 'Seite neu laden und nochmal versuchen.' }] })
