@@ -163,20 +163,17 @@ export default function AuditPage() {
 
   async function startAudit() {
     setPhase('analyzing')
-    const steps = [
-      'Seite wird aufgerufen…',
-      'HTML wird analysiert…',
-      'Technische Checks laufen…',
-      'Screenshot wird erstellt…',
-      'CI und Typografie werden geprüft…',
-      'Entscheidung wird getroffen…'
-    ]
+    const steps = ['Bilder werden analysiert…','CI und Farben werden geprüft…','Typografie wird bewertet…','CRO und Copy…','Entscheidung wird getroffen…']
     let si = 0
     setLoadStep(steps[0])
-    const iv = setInterval(() => { si++; if (si < steps.length) setLoadStep(steps[si]) }, 1500)
+    const iv = setInterval(() => { si++; if (si < steps.length) setLoadStep(steps[si]) }, 1200)
+
+    const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
+    const c = client || {}
+    const tones = (c.tones || []).join(', ') || 'n/a'
 
     try {
-      // URL mode: use backend API route
+      // URL mode: fetch HTML analysis from backend
       if (lpUrlMode && lpUrl.trim()) {
         const res = await fetch('/api/analyze-url', {
           method: 'POST',
@@ -185,61 +182,57 @@ export default function AuditPage() {
         })
         const data = await res.json()
         clearInterval(iv)
-        if (data.result) {
-          setResult(data.result)
-        } else {
-          setResult(demoResult())
-        }
+        setResult(data.result || { approved: false, verdict_headline: 'Fehler bei der URL-Analyse.', verdict_reason: data.error || 'Unbekannter Fehler.', score: 0, issues: [] })
         setPhase('result')
         return
       }
 
-      // File upload mode: send images directly to Claude
-      const parts = []
-      parts.push({ type: 'text', text: buildPrompt(client, lpB64.length > 0, crB64.length > 0) })
+      // File upload mode: call Anthropic Vision directly
+      const prompt = `Du bist ein erfahrener QA-Experte für Landing Pages und Ad Creatives. Klares, direktes Feedback.
+
+KUNDENPROFIL:
+- Kunde: ${c.name || 'unbekannt'} | Branche: ${c.industry || 'n/a'}
+- Zielgruppe: ${c.audience || 'n/a'} | LP-Ziel: ${c.goal || 'n/a'}
+- CI-Farben: Primär ${c.color_primary || 'n/a'}, Sekundär ${c.color_secondary || 'n/a'}, Akzent ${c.color_accent || 'n/a'}
+- Schrift: ${c.font || 'n/a'} | Tonalität: ${tones}
+- Verbote: ${c.donts || 'keine'}
+
+${lpB64.length > 0 ? 'LANDINGPAGE: CI-Farben, Schrift, kein Onepage-Branding, kein Waisenkind, Headlines max. 2 Zeilen, Kontrast, Abstände, CTA above fold, keine Platzhalter, Buttons einheitlich.' : ''}
+${crB64.length > 0 ? 'CREATIVES: Rechtschreibung, CI-Farben, Schrift, Kontrast, Format 1:1 oder 9:16, kein Play-Button, Schrift mind. 22px, keine leeren Flächen, max. 3 Schriftgrößen.' : ''}
+CRO und Copy prüfen. Tonalität: ${tones}.
+
+FREIGABE wenn max. 2 Warnungen, keine Fehler. Sonst KEINE FREIGABE.
+Antworte NUR mit JSON ohne Backticks:
+{"approved":true,"verdict_headline":"...","verdict_reason":"...","score":85,"issues":[{"type":"error|warning|cro|ci|copy","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"...","fix":"..."}]}`
+
+      const msgParts = [{ type: 'text', text: prompt }]
       lpB64.forEach((img, i) => {
-        parts.push({ type: 'text', text: `LP-Screenshot ${i+1}: ${img.name}` })
-        parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
+        msgParts.push({ type: 'text', text: `LP-Screenshot ${i+1}:` })
+        msgParts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
       })
       crB64.forEach((img, i) => {
-        parts.push({ type: 'text', text: `Creative ${i+1}: ${img.name}` })
-        parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
+        msgParts.push({ type: 'text', text: `Creative ${i+1}:` })
+        msgParts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
       })
 
-      // Route through our own API to avoid CORS + keep key secure
-      const res = await fetch('/api/analyze-files', {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client,
-          lpImages: lpB64.map(b => ({ name: b.name, type: b.type, data: b.data })),
-          crImages: crB64.map(b => ({ name: b.name, type: b.type, data: b.data }))
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages: [{ role: 'user', content: msgParts }] })
       })
       const data = await res.json()
       clearInterval(iv)
-      if (data.result) {
-        setResult(data.result)
-      } else {
-        setResult(demoResult())
-      }
+      const txt = data.content?.map(b => b.text || '').join('') || ''
+      let parsed
+      try { parsed = JSON.parse(txt.replace(/```json|```/g, '').trim()) } catch { parsed = null }
+      setResult(parsed || { approved: false, verdict_headline: 'Antwort konnte nicht verarbeitet werden.', verdict_reason: txt.slice(0, 300) || 'Leere Antwort.', score: 0, issues: [] })
     } catch(e) {
       clearInterval(iv)
-      console.error('Audit error:', e)
-      // Show real error instead of demo
-      setResult({
-        approved: false,
-        verdict_headline: 'Analyse fehlgeschlagen.',
-        verdict_reason: 'Fehler: ' + (e.message || 'Unbekannter Fehler'),
-        score: 0,
-        issues: [{
-          type: 'error',
-          category: 'Technisch',
-          title: 'API-Fehler',
-          description: e.message || 'Die Analyse konnte nicht gestartet werden.',
-          fix: 'Bitte die Browser-Konsole prüfen (F12 → Console) und den Fehler melden.'
-        }]
-      })
+      setResult({ approved: false, verdict_headline: 'Analyse fehlgeschlagen.', verdict_reason: e.message || 'Unbekannter Fehler.', score: 0, issues: [{ type: 'error', category: 'Technisch', title: 'Fehler', description: e.message, fix: 'Seite neu laden und nochmal versuchen.' }] })
     }
     setPhase('result')
   }
