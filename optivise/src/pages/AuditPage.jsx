@@ -96,14 +96,16 @@ Antworte NUR mit diesem JSON (keine Backticks, kein Text):
 }`
 }
 
-// Screenshot via screenshotone API (free tier: 100/month)
+
+// Screenshot via WordPress mshots - CORS-friendly, free
 async function fetchScreenshot(url) {
-  // Use a CORS-friendly screenshot service
-  const apiUrl = `https://image.thum.io/get/width/1280/crop/900/noanimate/${encodeURIComponent(url)}`
+  const cleanUrl = url.startsWith('http') ? url : 'https://' + url
+  const apiUrl = 'https://s0.wordpress.com/mshots/v1/' + encodeURIComponent(cleanUrl) + '?w=1280&h=900'
   const res = await fetch(apiUrl)
   if (!res.ok) throw new Error('Screenshot fehlgeschlagen')
   const blob = await res.blob()
-  return new Promise((resolve) => {
+  if (blob.size < 3000) throw new Error('Screenshot zu klein')
+  return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = e => resolve({
       name: 'screenshot.jpg',
@@ -111,6 +113,7 @@ async function fetchScreenshot(url) {
       data: e.target.result.split(',')[1],
       url: e.target.result
     })
+    reader.onerror = reject
     reader.readAsDataURL(blob)
   })
 }
