@@ -291,7 +291,15 @@ export default function AuditPage() {
                   onChange={e => setLpUrl(e.target.value)}
                   className={styles.urlInput}
                 />
-                {lpUrl && <div className={styles.urlHint}>✓ Screenshot wird beim Start automatisch erstellt</div>}
+                <div className={styles.screenshotTip}>
+                  <div className={styles.tipTitle}>💡 So machst du schnell einen Screenshot:</div>
+                  <div className={styles.tipSteps}>
+                    <span>1. Seite im Browser öffnen</span>
+                    <span>2. <strong>CMD+Shift+4</strong> (Mac) oder Snipping Tool (Windows)</span>
+                    <span>3. Screenshot speichern → oben Tab wechseln → hochladen</span>
+                  </div>
+                  {lpUrl && <a href={lpUrl} target="_blank" rel="noopener noreferrer" className={styles.tipLink}>Seite jetzt öffnen →</a>}
+                </div>
               </div>
             ) : (
               <DropZone
