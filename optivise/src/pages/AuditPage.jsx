@@ -175,7 +175,7 @@ export default function AuditPage() {
 
   async function startAudit() {
     setPhase('analyzing')
-    const steps = ['Bilder werden vorbereitet…','CI und Farben werden geprüft…','Typografie wird bewertet…','CRO und Copy…','Entscheidung wird getroffen…']
+    const steps = ['Bilder werden analysiert…', 'CI und Farben werden geprüft…', 'Typografie wird bewertet…', 'Conversion wird analysiert…', 'Entscheidung wird getroffen…']
     let si = 0
     setLoadStep(steps[0])
     const iv = setInterval(() => { si++; if (si < steps.length) setLoadStep(steps[si]) }, 1200)
@@ -185,8 +185,8 @@ export default function AuditPage() {
     const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
 
     try {
-      // URL mode
       if (lpUrlMode && lpUrl.trim()) {
+        // URL mode via backend
         const res = await fetch('/api/analyze-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -194,14 +194,13 @@ export default function AuditPage() {
         })
         const data = await res.json()
         clearInterval(iv)
-        setResult(data.result || { approved: false, verdict_headline: 'Fehler bei URL-Analyse.', verdict_reason: data.error || 'Unbekannter Fehler.', score: 0, issues: [] })
+        setResult(data.result || { approved: false, verdict_headline: 'Fehler.', verdict_reason: data.error || 'Unbekannt.', score: 0, issues: [] })
         setPhase('result')
         return
       }
 
-      // File upload mode – send directly to Anthropic with API key
-      // Anthropic allows this from browser with correct headers
-      const prompt = `Du bist ein Senior Marketing- und Conversion-Experte mit tiefem Wissen in Brand Design, UX und Performance Marketing. Du arbeitest wie ein erfahrener Teamleiter: du kennst die Regeln, aber du denkst auch mit.
+      // File upload: direct Anthropic call (browser-allowed with special header)
+      const prompt = `Du bist ein Senior Marketing- und Conversion-Experte. Analysiere die Materialien direkt und konkret.
 
 KUNDENPROFIL:
 - Kunde: ${c.name || 'unbekannt'} | Branche: ${c.industry || 'n/a'}
@@ -211,69 +210,37 @@ KUNDENPROFIL:
 - Schrift: ${c.font || 'n/a'} | Tonalität: ${tones}
 - Verbote: ${c.donts || 'keine'}
 
-${lpB64.length > 0 ? `LANDINGPAGE CHECKLISTE – prüfe jeden Punkt:
-□ Onepage-Branding deaktiviert (kein Onepage-Logo sichtbar)
-□ Favicon als Logo-PNG hinterlegt
-□ Seitenname ohne Begriffe wie LP/Landingpage/Funnel
-□ Keine Platzhaltertexte (Lorem ipsum, [TEXT], Dummy)
-□ CI-Farben korrekt: ${c.color_primary}, ${c.color_secondary}, ${c.color_accent}
-□ Logo entspricht Corporate Design
-□ Schriftart "${c.font||'n/a'}" verwendet, max. 2 Schriftarten
-□ Buchstabenabstände und Zeilenabstände einheitlich (1–1,5)
-□ Hoher Farbkontrast bei übereinanderliegenden Elementen
-□ Kein Waisenkind (einzelnes Wort letzte Zeile)
-□ Headlines max. 2 Zeilen, deutlich größer/dicker als Fließtext
-□ Max. 1 hervorgehobene Stelle pro Headline
-□ Abstände zwischen Elementen einheitlich
-□ Textschriftgröße mind. 16px
-□ Keine leeren Flächen im 2-Spalten-Layout
-□ Buttons einheitlich, kein übertriebener Hover-Effekt
-□ Einheitlicher Button-Text
-□ Impressum und Datenschutz verlinkt
-□ Emojis/Icons passen zum Text
-□ URL ohne Funnel-Begriffe (kein "leadmagnet", "autowebinar")
-□ Modalboxen/Popups umbenannt` : ''}
+${lpB64.length > 0 ? `LANDING PAGE CHECKLISTE:
+□ Onepage-Branding deaktiviert | □ Kein Platzhaltertext | □ CI-Farben korrekt (${c.color_primary}, ${c.color_secondary}, ${c.color_accent})
+□ Schrift "${c.font||'n/a'}" | □ Max. 2 Schriftarten | □ Zeilenabstand 1-1,5 | □ Hoher Kontrast
+□ Kein Waisenkind | □ Headlines max. 2 Zeilen | □ CTA above fold | □ Buttons einheitlich
+□ Abstände einheitlich | □ Impressum & Datenschutz | □ URL ohne Funnel-Begriffe` : ''}
 
-${crB64.length > 0 ? `CREATIVES CHECKLISTE – prüfe jeden Punkt:
-□ Keine Rechtschreibfehler im sichtbaren Text
-□ CI-Farben korrekt: ${c.color_primary}, ${c.color_secondary}, ${c.color_accent}
-□ Logo entspricht Corporate Design
-□ Schriftart "${c.font||'n/a'}" verwendet, max. 2 Schriftarten
-□ Buchstabenabstände einheitlich
-□ Hoher Kontrast bei übereinanderliegenden Farben/Texten
-□ Texte bündig oder zentriert mit anderen Elementen
-□ Overlays gehen bis zu den Bildrändern (keine schmalen Ränder)
-□ Kein Waisenkind (einzelnes Wort letzte Zeile)
-□ Format korrekt: 1:1 (1080×1080px) oder Story 9:16 (1080×1920px)
-□ Kein Maus-klickt-Button, kein Play-Button dargestellt
-□ Schriftgröße mind. 22px
-□ Keine unnötigen leeren Flächen
-□ Schrift gut lesbar, nicht zu verschnörkelt
-□ Maximal 3 verschiedene Schriftgrößen` : ''}
+${crB64.length > 0 ? `CREATIVES CHECKLISTE:
+□ Keine Rechtschreibfehler | □ CI-Farben korrekt (${c.color_primary}, ${c.color_secondary}, ${c.color_accent})
+□ Schrift "${c.font||'n/a'}" | □ Max. 2 Schriftarten | □ Max. 3 Schriftgrößen | □ Schrift mind. 22px
+□ Hoher Kontrast | □ Texte bündig/zentriert | □ Overlays bis zum Rand | □ Kein Waisenkind
+□ Format 1:1 oder 9:16 | □ Kein Play-Button | □ Keine leeren Flächen | □ Schrift lesbar` : ''}
 
-ZUSÄTZLICH – denke als Conversion-Experte mit:
-- Ist die Hauptbotschaft in 3 Sekunden klar?
-- Ist der CTA stark, prominent und above the fold?
-- Fehlen Trust-Signale (Testimonials, Zahlen, Social Proof)?
-- Wirkt die Headline überzeugend für "${c.audience || 'n/a'}"?
-- Passt der emotionale Ton zu "${tones}"?
-- Was würde die Conversion konkret am meisten verbessern?
+CONVERSION-ANALYSE (immer prüfen):
+- Hauptbotschaft in 3 Sekunden klar?
+- CTA stark und prominent?
+- Trust-Signale vorhanden?
+- Headline überzeugend für die Zielgruppe?
+- Emotionaler Ton passend?
 
-Sei direkt – beschreibe was du wirklich im Bild siehst. Keine theoretischen Vermutungen.
-
-FREIGABE: approved=true nur wenn keine Fehler und max. 2 Warnungen.
-
+FREIGABE: approved=true nur bei max. 2 Warnungen, keinen Fehlern.
 Antworte NUR mit JSON (keine Backticks):
-{"approved":true,"verdict_headline":"...","verdict_reason":"...","score":1-100,"issues":[{"type":"error|warning|cro|ci|copy","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"was du konkret siehst","fix":"konkrete Maßnahme"}]}`
+{"approved":true,"verdict_headline":"1 Satz","verdict_reason":"1-2 Sätze","score":85,"issues":[{"type":"error|warning|cro|ci|copy","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"was du konkret siehst","fix":"konkrete Maßnahme"}]}`
 
-      const msgParts = [{ type: 'text', text: prompt }]
+      const parts = [{ type: 'text', text: prompt }]
       lpB64.forEach((img, i) => {
-        msgParts.push({ type: 'text', text: `Landing Page Screenshot ${i+1}:` })
-        msgParts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
+        parts.push({ type: 'text', text: `Landing Page ${i + 1}:` })
+        parts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
       })
       crB64.forEach((img, i) => {
-        msgParts.push({ type: 'text', text: `Creative ${i+1}:` })
-        msgParts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
+        parts.push({ type: 'text', text: `Creative ${i + 1}:` })
+        parts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
       })
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -284,16 +251,12 @@ Antworte NUR mit JSON (keine Backticks):
           'anthropic-version': '2023-06-01',
           'anthropic-dangerous-direct-browser-access': 'true'
         },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 2000,
-          messages: [{ role: 'user', content: msgParts }]
-        })
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, messages: [{ role: 'user', content: parts }] })
       })
 
       if (!res.ok) {
         const errText = await res.text()
-        throw new Error(`Claude API: ${res.status} – ${errText.slice(0, 150)}`)
+        throw new Error(`Claude API ${res.status}: ${errText.slice(0, 200)}`)
       }
 
       const data = await res.json()
@@ -301,11 +264,11 @@ Antworte NUR mit JSON (keine Backticks):
       const txt = data.content?.map(b => b.text || '').join('') || ''
       let parsed
       try { parsed = JSON.parse(txt.replace(/```json|```/g, '').trim()) } catch { parsed = null }
-      setResult(parsed || { approved: false, verdict_headline: 'Antwort konnte nicht verarbeitet werden.', verdict_reason: txt.slice(0, 200) || 'Leere Antwort.', score: 0, issues: [] })
+      setResult(parsed || { approved: false, verdict_headline: 'Antwort konnte nicht verarbeitet werden.', verdict_reason: txt.slice(0, 200), score: 0, issues: [] })
 
-    } catch(e) {
+    } catch (e) {
       clearInterval(iv)
-      setResult({ approved: false, verdict_headline: 'Analyse fehlgeschlagen.', verdict_reason: e.message || 'Unbekannter Fehler.', score: 0, issues: [{ type: 'error', category: 'Technisch', title: 'Fehler', description: e.message, fix: 'Seite neu laden und nochmal versuchen.' }] })
+      setResult({ approved: false, verdict_headline: 'Analyse fehlgeschlagen.', verdict_reason: e.message, score: 0, issues: [{ type: 'error', category: 'Technisch', title: 'Fehler', description: e.message, fix: 'Seite neu laden und nochmal versuchen.' }] })
     }
     setPhase('result')
   }
