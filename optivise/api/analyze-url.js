@@ -34,22 +34,7 @@ export default async function handler(req, res) {
     // 2. Extract technical info from HTML
     const tech = html ? extractTech(html, url) : null
 
-    // 3. Screenshot via thum.io (server-side, no CORS)
-    let screenshotB64 = null, screenshotType = 'image/jpeg'
-    try {
-      const imgRes = await fetch(`https://image.thum.io/get/width/1280/crop/900/noanimate/${encodeURIComponent(url)}`, {
-        signal: AbortSignal.timeout(15000)
-      })
-      if (imgRes.ok) {
-        const buf = await imgRes.arrayBuffer()
-        if (buf.byteLength > 5000) {
-          screenshotB64 = Buffer.from(buf).toString('base64')
-          screenshotType = imgRes.headers.get('content-type') || 'image/jpeg'
-        }
-      }
-    } catch {}
-
-    // 4. Build prompt
+    // 3. Build prompt
     const techSummary = fetchError
       ? `FEHLER beim Laden der Seite: ${fetchError}`
       : `TECHNISCHE ANALYSE (automatisch aus HTML extrahiert):
@@ -112,14 +97,10 @@ FREIGABE: approved=true bei max. 2 Warnungen, keinen Fehlern.
 Antworte NUR mit JSON:
 {"approved":true,"verdict_headline":"1 Satz","verdict_reason":"1-2 Sätze","score":85,"issues":[{"type":"error|warning|cro|ci|copy|hint","category":"Technisch|LP|CI|CRO|Copy","title":"...","description":"konkret was gefunden/gesehen","fix":"Maßnahme"}]}`
 
-    // 5. Build message parts
+    // 4. Build message parts
     const parts = [{ type: 'text', text: prompt }]
-    if (screenshotB64) {
-      parts.push({ type: 'text', text: 'Screenshot der Landing Page:' })
-      parts.push({ type: 'image', source: { type: 'base64', media_type: screenshotType, data: screenshotB64 } })
-    }
 
-    // 6. Call Claude
+    // 5. Call Claude
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -143,7 +124,6 @@ Antworte NUR mit JSON:
     return res.status(200).json({
       success: true,
       result: parsed,
-      screenshotAvailable: !!screenshotB64,
       tech
     })
 
