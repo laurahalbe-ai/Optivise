@@ -1,11 +1,6 @@
-// Vercel Serverless Function – analyzes uploaded LP screenshots and creatives
 export const config = {
   maxDuration: 60,
-  api: {
-    bodyParser: {
-      sizeLimit: '20mb'
-    }
-  }
+  api: { bodyParser: { sizeLimit: '20mb' } }
 }
 
 export default async function handler(req, res) {
@@ -16,24 +11,13 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const ANTHROPIC_KEY = process.env.VITE_ANTHROPIC_API_KEY
+  if (!ANTHROPIC_KEY) return res.status(500).json({ error: 'API Key fehlt in Vercel Environment Variables.' })
 
-  if (!ANTHROPIC_KEY) {
-    return res.status(500).json({ error: 'API Key fehlt – bitte VITE_ANTHROPIC_API_KEY in Vercel Environment Variables setzen.' })
-  }
-
-  let body = req.body
-  if (!body) {
-    return res.status(400).json({ error: 'Kein Body empfangen.' })
-  }
-
-  const { client, lpImages = [], crImages = [] } = body
+  const { client, lpImages = [], crImages = [] } = req.body || {}
   const c = client || {}
   const tones = (c.tones || []).join(', ') || 'n/a'
 
-  try {
-    const parts = []
-
-    const prompt = `Du bist ein erfahrener QA-Experte für Landing Pages und Ad Creatives. Du gibst klares, direktes Feedback.
+  const prompt = `Du bist ein Senior Marketing- und Conversion-Experte. Analysiere die hochgeladenen Materialien und gib direktes, konkretes Feedback.
 
 KUNDENPROFIL:
 - Kunde: ${c.name || 'unbekannt'} | Branche: ${c.industry || 'n/a'}
@@ -43,48 +27,38 @@ KUNDENPROFIL:
 - Schrift: ${c.font || 'n/a'} | Tonalität: ${tones}
 - Verbote: ${c.donts || 'keine'}
 
-${lpImages.length > 0 ? `LANDINGPAGE prüfen:
-- Kein Onepage-Branding sichtbar
-- CI-Farben korrekt (${c.color_primary}, ${c.color_secondary}, ${c.color_accent})
-- Schrift "${c.font||'n/a'}" verwendet, max. 2 Schriftarten
-- Kein Waisenkind, Headlines max. 2 Zeilen
-- Hoher Farbkontrast, Abstände einheitlich
-- CTA above the fold sichtbar
-- Keine Platzhaltertexte
-- Buttons einheitlich
-- Impressum/Datenschutz sichtbar verlinkt` : ''}
+${lpImages.length > 0 ? `LANDING PAGE CHECKLISTE:
+□ Onepage-Branding deaktiviert | □ Kein Platzhaltertext | □ CI-Farben korrekt (${c.color_primary}, ${c.color_secondary}, ${c.color_accent})
+□ Schrift "${c.font||'n/a'}" | □ Max. 2 Schriftarten | □ Zeilenabstand 1-1,5 | □ Hoher Kontrast
+□ Kein Waisenkind | □ Headlines max. 2 Zeilen | □ CTA above fold | □ Buttons einheitlich
+□ Abstände einheitlich | □ Impressum & Datenschutz | □ URL ohne Funnel-Begriffe` : ''}
 
-${crImages.length > 0 ? `CREATIVES prüfen:
-- Keine Rechtschreibfehler
-- CI-Farben korrekt (${c.color_primary}, ${c.color_secondary}, ${c.color_accent})
-- Schrift "${c.font||'n/a'}" verwendet, max. 2 Schriftarten
-- Hoher Kontrast, Texte bündig ausgerichtet
-- Overlays bis zu den Rändern
-- Kein Waisenkind
-- Format 1:1 oder 9:16
-- Kein Play-Button, kein Maus-klickt-Button
-- Schrift mind. 22px, gut lesbar
-- Keine leeren Flächen
-- Max. 3 Schriftgrößen` : ''}
+${crImages.length > 0 ? `CREATIVES CHECKLISTE:
+□ Keine Rechtschreibfehler | □ CI-Farben korrekt (${c.color_primary}, ${c.color_secondary}, ${c.color_accent})
+□ Schrift "${c.font||'n/a'}" | □ Max. 2 Schriftarten | □ Max. 3 Schriftgrößen | □ Schrift mind. 22px
+□ Hoher Kontrast | □ Texte bündig/zentriert | □ Overlays bis zum Rand | □ Kein Waisenkind
+□ Format 1:1 oder 9:16 | □ Kein Play-Button | □ Keine leeren Flächen | □ Schrift lesbar` : ''}
 
-CRO: CTA-Position, Social Proof, Trust-Elemente.
-Copy: Markenstimme "${tones}", keine Platzhalter.
+CONVERSION-ANALYSE (immer prüfen):
+- Ist die Hauptbotschaft in 3 Sekunden klar?
+- CTA stark und prominent?
+- Trust-Signale vorhanden?
+- Headline überzeugend für "${c.audience || 'n/a'}"?
+- Emotionaler Ton passend zu "${tones}"?
 
-FREIGABE: max. 2 Warnungen, keine Fehler → approved: true
-KEINE FREIGABE: bei Fehlern oder CI-Problemen → approved: false
+FREIGABE: approved=true nur bei max. 2 Warnungen und keinen Fehlern.
 
 Antworte NUR mit JSON:
-{"approved":true/false,"verdict_headline":"<1 Satz>","verdict_reason":"<1-2 Sätze>","score":<1-100>,"issues":[{"type":"error|warning|cro|ci|copy","category":"LP|Creative|CI|CRO|Copy","title":"<Titel>","description":"<was du siehst>","fix":"<Maßnahme>"}]}`
+{"approved":true,"verdict_headline":"1 klarer Satz","verdict_reason":"1-2 Sätze","score":85,"issues":[{"type":"error|warning|cro|ci|copy","category":"LP|Creative|CI|CRO|Copy","title":"Titel","description":"was du konkret siehst","fix":"konkrete Maßnahme"}]}`
 
-    parts.push({ type: 'text', text: prompt })
-
+  try {
+    const parts = [{ type: 'text', text: prompt }]
     lpImages.forEach((img, i) => {
-      parts.push({ type: 'text', text: `LP-Screenshot ${i+1}:` })
+      parts.push({ type: 'text', text: `Landing Page ${i + 1}:` })
       parts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
     })
-
     crImages.forEach((img, i) => {
-      parts.push({ type: 'text', text: `Creative ${i+1}:` })
+      parts.push({ type: 'text', text: `Creative ${i + 1}:` })
       parts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
     })
 
@@ -95,36 +69,21 @@ Antworte NUR mit JSON:
         'x-api-key': ANTHROPIC_KEY,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: parts }]
-      })
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, messages: [{ role: 'user', content: parts }] })
     })
 
     if (!claudeRes.ok) {
-      const errText = await claudeRes.text()
-      return res.status(500).json({ error: `Claude API Fehler: ${claudeRes.status} – ${errText.slice(0, 200)}` })
+      const err = await claudeRes.text()
+      return res.status(500).json({ error: `Claude Fehler: ${claudeRes.status} – ${err.slice(0, 300)}` })
     }
 
-    const claudeData = await claudeRes.json()
-    const txt = claudeData.content?.map(b => b.text || '').join('') || ''
-
+    const data = await claudeRes.json()
+    const txt = data.content?.map(b => b.text || '').join('') || ''
     let parsed
-    try {
-      parsed = JSON.parse(txt.replace(/```json|```/g, '').trim())
-    } catch {
-      return res.status(200).json({
-        success: false,
-        error: 'JSON parse fehlgeschlagen',
-        rawResponse: txt.slice(0, 500),
-        result: null
-      })
-    }
+    try { parsed = JSON.parse(txt.replace(/```json|```/g, '').trim()) } catch { parsed = null }
 
-    return res.status(200).json({ success: true, result: parsed })
-
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Unbekannter Fehler' })
+    return res.status(200).json({ success: true, result: parsed, rawText: parsed ? undefined : txt.slice(0, 500) })
+  } catch (e) {
+    return res.status(500).json({ error: e.message })
   }
 }
