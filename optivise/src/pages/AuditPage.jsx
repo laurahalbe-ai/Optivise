@@ -201,6 +201,9 @@ export default function AuditPage() {
 
       // File upload: direct Anthropic call (browser-allowed with special header)
       const prompt = `Du bist ein Senior Marketing- und Conversion-Experte. Analysiere die Materialien direkt und konkret.
+Wenn ein Issue sich auf ein bestimmtes Bild bezieht, füge "imageIndex": <nummer> hinzu (0-basiert, z.B. 0 für erstes LP-Bild, 0 für erstes Creative).
+Für LP-Bilder: "imageType": "lp", für Creatives: "imageType": "cr".
+Falls ein Issue allgemein ist, lass imageIndex und imageType weg.
 
 KUNDENPROFIL:
 - Kunde: ${c.name || 'unbekannt'} | Branche: ${c.industry || 'n/a'}
@@ -209,6 +212,12 @@ KUNDENPROFIL:
 - CI-Farben: Primär ${c.color_primary || 'n/a'}, Sekundär ${c.color_secondary || 'n/a'}, Akzent ${c.color_accent || 'n/a'}
 - Schrift: ${c.font || 'n/a'} | Tonalität: ${tones}
 - Verbote: ${c.donts || 'keine'}
+
+${[
+  ...(c.feedback_internal||[]).slice(0,5).map(f=>`[Team] [${f.category}] ${f.text}`),
+  ...(c.feedback_client||[]).slice(0,5).map(f=>`[Kunde] [${f.category}] ${f.text}`)
+].length > 0 ? `GELERNTES FEEDBACK (berücksichtigen):
+${[...(c.feedback_internal||[]).slice(0,5).map(f=>`- [Team/${f.category}] ${f.text}`),...(c.feedback_client||[]).slice(0,5).map(f=>`- [Kunde/${f.category}] ${f.text}`)].join('\n')}` : ''}
 
 ${lpB64.length > 0 ? `LANDING PAGE CHECKLISTE:
 □ Onepage-Branding deaktiviert | □ Kein Platzhaltertext | □ CI-Farben korrekt (${c.color_primary}, ${c.color_secondary}, ${c.color_accent})
@@ -243,7 +252,7 @@ FREIGABE-LOGIK:
 - approved=false: nur bei wirklich klaren, eindeutigen Fehlern oder mehr als 2 echten Warnungen
 
 Antworte NUR mit JSON (keine Backticks):
-{"approved":true,"verdict_headline":"1 Satz","verdict_reason":"1-2 Sätze","score":85,"issues":[{"type":"error|warning|cro|ci|copy|hint","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"was du konkret siehst","fix":"konkrete Maßnahme"}]}`
+{"approved":true,"verdict_headline":"1 Satz","verdict_reason":"1-2 Sätze","score":85,"issues":[{"type":"error|warning|cro|ci|copy|hint","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"was du konkret siehst","fix":"konkrete Maßnahme","imageType":"lp|cr","imageIndex":0}]}`
 
       const parts = [{ type: 'text', text: prompt }]
       lpB64.forEach((img, i) => {
@@ -459,19 +468,31 @@ Antworte NUR mit JSON (keine Backticks):
                   <div className={styles.groupHeader}>
                     <span>{catIcons[cat] || '📋'}</span> {cat}
                   </div>
-                  {issues.map((iss, i) => (
-                    <div key={i} className={styles.issue}>
-                      <div className={styles.issueTop}>
-                        <span className={`badge ${badgeMap[iss.type]?.[0] || 'badge-warning'}`}>{badgeMap[iss.type]?.[1] || iss.type}</span>
-                        <span className={styles.issueTitle}>{iss.title}</span>
+                  {issues.map((iss, i) => {
+                    const thumb = iss.imageType === 'lp'
+                      ? lpB64[iss.imageIndex ?? 0]?.url
+                      : iss.imageType === 'cr'
+                      ? crB64[iss.imageIndex ?? 0]?.url
+                      : null
+                    return (
+                      <div key={i} className={styles.issue}>
+                        <div className={styles.issueTop}>
+                          <span className={`badge ${badgeMap[iss.type]?.[0] || 'badge-warning'}`}>{badgeMap[iss.type]?.[1] || iss.type}</span>
+                          <span className={styles.issueTitle}>{iss.title}</span>
+                        </div>
+                        {thumb && (
+                          <div className={styles.issueThumbWrap}>
+                            <img src={thumb} className={styles.issueThumb} alt="Referenz" />
+                          </div>
+                        )}
+                        <p className={styles.issueBody}>{iss.description}</p>
+                        <div className={styles.fix}>
+                          <div className={styles.fixLbl}>So beheben</div>
+                          {iss.fix}
+                        </div>
                       </div>
-                      <p className={styles.issueBody}>{iss.description}</p>
-                      <div className={styles.fix}>
-                        <div className={styles.fixLbl}>So beheben</div>
-                        {iss.fix}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ))
             })()}
