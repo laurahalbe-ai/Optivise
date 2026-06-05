@@ -225,7 +225,21 @@ export default function AuditPage() {
       }
     } catch(e) {
       clearInterval(iv)
-      setResult(demoResult())
+      console.error('Audit error:', e)
+      // Show real error instead of demo
+      setResult({
+        approved: false,
+        verdict_headline: 'Analyse fehlgeschlagen.',
+        verdict_reason: 'Fehler: ' + (e.message || 'Unbekannter Fehler'),
+        score: 0,
+        issues: [{
+          type: 'error',
+          category: 'Technisch',
+          title: 'API-Fehler',
+          description: e.message || 'Die Analyse konnte nicht gestartet werden.',
+          fix: 'Bitte die Browser-Konsole prüfen (F12 → Console) und den Fehler melden.'
+        }]
+      })
     }
     setPhase('result')
   }
