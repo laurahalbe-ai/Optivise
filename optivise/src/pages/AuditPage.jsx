@@ -165,56 +165,65 @@ export default function AuditPage() {
     setPhase('analyzing')
     const steps = [
       'Seite wird aufgerufen…',
+      'HTML wird analysiert…',
+      'Technische Checks laufen…',
       'Screenshot wird erstellt…',
-      'Farben und CI werden geprüft…',
-      'Typografie und Abstände…',
-      'CRO und Copy werden bewertet…',
+      'CI und Typografie werden geprüft…',
       'Entscheidung wird getroffen…'
     ]
     let si = 0
     setLoadStep(steps[0])
-    const iv = setInterval(() => { si++; if (si < steps.length) setLoadStep(steps[si]) }, 1200)
-
-    let finalLpB64 = [...lpB64]
-
-    // If URL mode, fetch screenshot first
-    if (lpUrlMode && lpUrl.trim()) {
-      try {
-        setLoadStep('Screenshot wird erstellt…')
-        const screenshot = await fetchScreenshot(lpUrl.trim())
-        finalLpB64 = [screenshot]
-      } catch (e) {
-        clearInterval(iv)
-        setLoadStep('Screenshot fehlgeschlagen – bitte manuell hochladen.')
-        setTimeout(() => setPhase('upload'), 2000)
-        return
-      }
-    }
-
-    const parts = []
-    parts.push({ type: 'text', text: buildPrompt(client, finalLpB64.length > 0, crB64.length > 0) })
-    finalLpB64.forEach((img, i) => {
-      parts.push({ type: 'text', text: `LP-Screenshot ${i+1}: ${img.name}` })
-      parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
-    })
-    crB64.forEach((img, i) => {
-      parts.push({ type: 'text', text: `Creative ${i+1}: ${img.name}` })
-      parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
-    })
+    const iv = setInterval(() => { si++; if (si < steps.length) setLoadStep(steps[si]) }, 1500)
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      // URL mode: use backend API route
+      if (lpUrlMode && lpUrl.trim()) {
+        const res = await fetch('/api/analyze-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: lpUrl.trim(), client })
+        })
+        const data = await res.json()
+        clearInterval(iv)
+        if (data.result) {
+          setResult(data.result)
+        } else {
+          setResult(demoResult())
+        }
+        setPhase('result')
+        return
+      }
+
+      // File upload mode: send images directly to Claude
+      const parts = []
+      parts.push({ type: 'text', text: buildPrompt(client, lpB64.length > 0, crB64.length > 0) })
+      lpB64.forEach((img, i) => {
+        parts.push({ type: 'text', text: `LP-Screenshot ${i+1}: ${img.name}` })
+        parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
+      })
+      crB64.forEach((img, i) => {
+        parts.push({ type: 'text', text: `Creative ${i+1}: ${img.name}` })
+        parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
+      })
+
+      // Route through our own API to avoid CORS + keep key secure
+      const res = await fetch('/api/analyze-files', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1500, messages: [{ role: 'user', content: parts }] })
+        body: JSON.stringify({
+          client,
+          lpImages: lpB64.map(b => ({ name: b.name, type: b.type, data: b.data })),
+          crImages: crB64.map(b => ({ name: b.name, type: b.type, data: b.data }))
+        })
       })
       const data = await res.json()
       clearInterval(iv)
-      const txt = data.content?.map(b => b.text || '').join('')
-      let parsed
-      try { parsed = JSON.parse(txt.replace(/```json|```/g, '').trim()) } catch { parsed = null }
-      setResult(parsed || demoResult())
-    } catch {
+      if (data.result) {
+        setResult(data.result)
+      } else {
+        setResult(demoResult())
+      }
+    } catch(e) {
       clearInterval(iv)
       setResult(demoResult())
     }
@@ -291,15 +300,16 @@ export default function AuditPage() {
                   onChange={e => setLpUrl(e.target.value)}
                   className={styles.urlInput}
                 />
-                <div className={styles.screenshotTip}>
-                  <div className={styles.tipTitle}>💡 So machst du schnell einen Screenshot:</div>
-                  <div className={styles.tipSteps}>
-                    <span>1. Seite im Browser öffnen</span>
-                    <span>2. <strong>CMD+Shift+4</strong> (Mac) oder Snipping Tool (Windows)</span>
-                    <span>3. Screenshot speichern → oben Tab wechseln → hochladen</span>
+                {lpUrl && (
+                  <div className={styles.urlReady}>
+                    <span>✓ URL erkannt – beim Start wird die Seite automatisch geprüft</span>
+                    <div className={styles.urlChecks}>
+                      <span>🔍 HTML & technische Checks</span>
+                      <span>📸 Screenshot wird erstellt</span>
+                      <span>🎨 CI & Visuelles wird analysiert</span>
+                    </div>
                   </div>
-                  {lpUrl && <a href={lpUrl} target="_blank" rel="noopener noreferrer" className={styles.tipLink}>Seite jetzt öffnen →</a>}
-                </div>
+                )}
               </div>
             ) : (
               <DropZone
