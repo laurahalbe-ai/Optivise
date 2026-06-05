@@ -60,7 +60,7 @@ function buildPrompt(client, hasLP, hasCR) {
   checks += 'Prüfe zusätzlich CRO: CTA-Positionierung, Social Proof, Headline-Stärke, Trust-Elemente.\n'
   checks += `Prüfe Copywriting auf Markenstimme: ${tones}\n`
 
-  return `Du bist ein erfahrener Teamleiter und QA-Experte für Landing Pages und Ad Creatives. Du gibst klares, direktes Feedback – wie ein Teamleiter der entscheidet ob etwas live gehen darf.
+  return `Du bist ein erfahrener QA-Experte für Landing Pages und Ad Creatives. Du gibst klares, direktes Feedback und entscheidest ob etwas live gehen darf.
 
 KUNDENPROFIL:
 - Kunde: ${client.name} | Branche: ${client.industry || 'n/a'}
@@ -96,16 +96,37 @@ Antworte NUR mit diesem JSON (keine Backticks, kein Text):
 }`
 }
 
+// Screenshot via screenshotone API (free tier: 100/month)
+async function fetchScreenshot(url) {
+  // Use a CORS-friendly screenshot service
+  const apiUrl = `https://image.thum.io/get/width/1280/crop/900/noanimate/${encodeURIComponent(url)}`
+  const res = await fetch(apiUrl)
+  if (!res.ok) throw new Error('Screenshot fehlgeschlagen')
+  const blob = await res.blob()
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = e => resolve({
+      name: 'screenshot.jpg',
+      type: 'image/jpeg',
+      data: e.target.result.split(',')[1],
+      url: e.target.result
+    })
+    reader.readAsDataURL(blob)
+  })
+}
+
 export default function AuditPage() {
   const { clientId } = useParams()
   const navigate = useNavigate()
   const [client, setClient] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [lpUrl, setLpUrl] = useState('')
+  const [lpUrlMode, setLpUrlMode] = useState(true) // true = URL, false = upload
   const [lpFiles, setLpFiles] = useState([])
   const [crFiles, setCrFiles] = useState([])
   const [lpB64, setLpB64] = useState([])
   const [crB64, setCrB64] = useState([])
-  const [phase, setPhase] = useState('upload') // upload | analyzing | result
+  const [phase, setPhase] = useState('upload')
   const [result, setResult] = useState(null)
   const [loadStep, setLoadStep] = useState('')
 
@@ -134,16 +155,42 @@ export default function AuditPage() {
     else { setCrFiles(p => p.filter((_,j)=>j!==i)); setCrB64(p => p.filter((_,j)=>j!==i)) }
   }
 
+  const hasLP = lpUrlMode ? lpUrl.trim().length > 0 : lpFiles.length > 0
+  const hasFiles = hasLP || crFiles.length > 0
+
   async function startAudit() {
     setPhase('analyzing')
-    const steps = ['Bilder werden analysiert…','Farben und CI werden geprüft…','Typografie und Abstände…','CRO und Copy werden bewertet…','Entscheidung wird getroffen…']
+    const steps = [
+      'Seite wird aufgerufen…',
+      'Screenshot wird erstellt…',
+      'Farben und CI werden geprüft…',
+      'Typografie und Abstände…',
+      'CRO und Copy werden bewertet…',
+      'Entscheidung wird getroffen…'
+    ]
     let si = 0
     setLoadStep(steps[0])
     const iv = setInterval(() => { si++; if (si < steps.length) setLoadStep(steps[si]) }, 1200)
 
+    let finalLpB64 = [...lpB64]
+
+    // If URL mode, fetch screenshot first
+    if (lpUrlMode && lpUrl.trim()) {
+      try {
+        setLoadStep('Screenshot wird erstellt…')
+        const screenshot = await fetchScreenshot(lpUrl.trim())
+        finalLpB64 = [screenshot]
+      } catch (e) {
+        clearInterval(iv)
+        setLoadStep('Screenshot fehlgeschlagen – bitte manuell hochladen.')
+        setTimeout(() => setPhase('upload'), 2000)
+        return
+      }
+    }
+
     const parts = []
-    parts.push({ type: 'text', text: buildPrompt(client, lpB64.length > 0, crB64.length > 0) })
-    lpB64.forEach((img, i) => {
+    parts.push({ type: 'text', text: buildPrompt(client, finalLpB64.length > 0, crB64.length > 0) })
+    finalLpB64.forEach((img, i) => {
       parts.push({ type: 'text', text: `LP-Screenshot ${i+1}: ${img.name}` })
       parts.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } })
     })
@@ -175,20 +222,18 @@ export default function AuditPage() {
     return {
       approved: false,
       verdict_headline: 'Noch nicht freigabereif – 2 Punkte korrigieren.',
-      verdict_reason: 'Es wurden CI-Abweichungen und ein Platzhaltertext gefunden. Bitte beheben und erneut einreichen.',
+      verdict_reason: 'Es wurden CI-Abweichungen und ein Platzhaltertext gefunden.',
       score: 64,
       issues: [
-        { type: 'error', category: 'LP', title: 'Platzhaltertext sichtbar', description: 'Im Testimonial-Bereich steht noch "[Kundenname einfügen]" – nicht durch finalen Text ersetzt.', fix: 'Alle Textblöcke finalisieren. Besonders Testimonials, Feature-Texte und Footer prüfen.' },
-        { type: 'ci', category: 'CI', title: 'Farbabweichung im Hero', description: `Die Button-Farbe weicht von der CI-Primärfarbe ${client?.color_primary} ab.`, fix: `Alle Hex-Werte exakt auf ${client?.color_primary} setzen – keine ähnlichen Farbtöne.` },
-        { type: 'warning', category: 'Creative', title: 'Waisenkind im Text', description: 'Das letzte Wort steht allein in einer neuen Zeile.', fix: 'Manuellen Zeilenumbruch setzen um das Wort in die vorletzte Zeile zu holen.' },
-        { type: 'cro', category: 'CRO', title: 'CTA nicht above the fold', description: 'Der primäre Button ist erst nach dem ersten Scroll sichtbar.', fix: 'CTA direkt in den Hero-Bereich setzen.' },
+        { type: 'error', category: 'LP', title: 'Platzhaltertext sichtbar', description: 'Im Testimonial-Bereich steht noch "[Kundenname einfügen]".', fix: 'Alle Textblöcke finalisieren.' },
+        { type: 'ci', category: 'CI', title: 'Farbabweichung im Hero', description: `Button-Farbe weicht von CI-Primärfarbe ${client?.color_primary} ab.`, fix: `Hex-Wert exakt auf ${client?.color_primary} setzen.` },
       ]
     }
   }
 
   function reset() {
     setLpFiles([]); setCrFiles([]); setLpB64([]); setCrB64([])
-    setResult(null); setPhase('upload')
+    setLpUrl(''); setResult(null); setPhase('upload')
   }
 
   const catIcons = { LP: '🖥', Creative: '🎨', CI: '🎯', CRO: '📈', Copy: '✍️', Allgemein: '📋' }
@@ -200,11 +245,9 @@ export default function AuditPage() {
   const AVATAR_COLORS = ['#7B6EF6','#34D399','#F87171','#60A5FA','#FBBF24','#F472B6']
   const avaColor = AVATAR_COLORS[parseInt(client.id?.replace(/-/g,'').slice(0,8), 16) % AVATAR_COLORS.length]
   const ini = client.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
-  const hasFiles = lpFiles.length > 0 || crFiles.length > 0
 
   return (
     <div className={styles.wrap}>
-      {/* Header */}
       <header className={styles.header}>
         <button className="btn btn-ghost" style={{padding:'6px 10px',gap:6,fontSize:13}} onClick={() => navigate('/')}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -218,13 +261,36 @@ export default function AuditPage() {
       </header>
 
       <main className={styles.main}>
+
         {/* UPLOAD PHASE */}
         {phase === 'upload' && (
           <div className={`${styles.uploadWrap} fade-in`}>
             <div className={styles.uploadTitle}>Was soll geprüft werden?</div>
-            <div className={styles.uploadSub}>Dateien hochladen – der Teamleiter prüft sofort.</div>
+            <div className={styles.uploadSub}>URL eingeben oder Dateien hochladen – Analyse startet sofort.</div>
 
-            <div className={styles.dropGrid}>
+            {/* Landing Page section */}
+            <div className={styles.sectionLabel}>Landing Page</div>
+            <div className={styles.lpTabs}>
+              <button className={`${styles.lpTab} ${lpUrlMode ? styles.lpTabActive : ''}`} onClick={() => setLpUrlMode(true)}>
+                🔗 URL eingeben
+              </button>
+              <button className={`${styles.lpTab} ${!lpUrlMode ? styles.lpTabActive : ''}`} onClick={() => setLpUrlMode(false)}>
+                📁 Screenshot hochladen
+              </button>
+            </div>
+
+            {lpUrlMode ? (
+              <div className={styles.urlWrap}>
+                <input
+                  type="url"
+                  placeholder="https://deine-landingpage.de"
+                  value={lpUrl}
+                  onChange={e => setLpUrl(e.target.value)}
+                  className={styles.urlInput}
+                />
+                {lpUrl && <div className={styles.urlHint}>✓ Screenshot wird beim Start automatisch erstellt</div>}
+              </div>
+            ) : (
               <DropZone
                 label="Landing Page"
                 sub="Screenshot hochladen"
@@ -235,21 +301,24 @@ export default function AuditPage() {
                 onRemove={i => removeFile('lp', i)}
                 accept="image/png,image/jpeg,image/webp"
               />
-              <DropZone
-                label="Creatives"
-                sub="Ads & Banner hochladen"
-                icon="🎨"
-                files={crFiles}
-                b64={crB64}
-                onAdd={f => addFiles(f, 'cr')}
-                onRemove={i => removeFile('cr', i)}
-                accept="image/png,image/jpeg,image/webp"
-              />
-            </div>
+            )}
+
+            {/* Creatives section */}
+            <div className={styles.sectionLabel} style={{marginTop:20}}>Creatives</div>
+            <DropZone
+              label="Creatives"
+              sub="Ads & Banner hochladen"
+              icon="🎨"
+              files={crFiles}
+              b64={crB64}
+              onAdd={f => addFiles(f, 'cr')}
+              onRemove={i => removeFile('cr', i)}
+              accept="image/png,image/jpeg,image/webp"
+            />
 
             <button className={`btn btn-primary btn-full btn-lg ${styles.auditBtn}`} disabled={!hasFiles} onClick={startAudit}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 0v2m0 8v2M2 8H0m16 0h-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-              Jetzt prüfen lassen
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2a6 6 0 100 12A6 6 0 008 2z" stroke="currentColor" strokeWidth="1.4"/><path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+              Audit starten
             </button>
           </div>
         )}
@@ -261,9 +330,12 @@ export default function AuditPage() {
               {[...lpB64, ...crB64].slice(0, 4).map((b, i) => (
                 <img key={i} src={b.url} className={styles.analyzeThumb} alt="" />
               ))}
+              {lpUrlMode && lpUrl && lpB64.length === 0 && (
+                <div className={styles.analyzeThumbPlaceholder}>🔗</div>
+              )}
             </div>
             <div className="spinner spinner-lg" style={{margin:'0 auto 20px'}} />
-            <div className={styles.analyzeTitle}>Teamleiter prüft…</div>
+            <div className={styles.analyzeTitle}>Wird geprüft…</div>
             <div className={styles.analyzeStep}>{loadStep}</div>
           </div>
         )}
@@ -271,7 +343,6 @@ export default function AuditPage() {
         {/* RESULT PHASE */}
         {phase === 'result' && result && (
           <div className={`${styles.resultWrap} fade-in`}>
-            {/* Verdict */}
             <div className={`${styles.verdict} ${result.approved ? styles.verdictApproved : styles.verdictRejected}`}>
               <div className={styles.verdictIcon}>
                 {result.approved
@@ -286,7 +357,6 @@ export default function AuditPage() {
               </div>
             </div>
 
-            {/* Score */}
             <div className={styles.scoreRow}>
               <span className={styles.scoreNum} style={{color: result.score >= 75 ? 'var(--green)' : result.score >= 50 ? 'var(--amber)' : 'var(--red)'}}>{result.score}</span>
               <div className={styles.scoreTrack}>
@@ -301,7 +371,6 @@ export default function AuditPage() {
               </span>
             </div>
 
-            {/* Issues grouped by category */}
             {(() => {
               const grouped = {}
               ;(result.issues || []).forEach(iss => {
@@ -331,11 +400,10 @@ export default function AuditPage() {
               ))
             })()}
 
-            {/* Actions */}
             <div className={styles.actions}>
               <button className="btn btn-secondary" onClick={reset}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7a6 6 0 106-6H5M3 1L1 3l2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Neue Dateien prüfen
+                Erneut prüfen
               </button>
               <button className="btn btn-secondary" onClick={() => navigate('/')}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
