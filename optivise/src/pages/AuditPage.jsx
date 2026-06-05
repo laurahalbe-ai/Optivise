@@ -144,13 +144,13 @@ export default function AuditPage() {
       const url = URL.createObjectURL(file)
       img.onload = () => {
         // Resize to max 1200px wide to stay under Vercel 4.5MB limit
-        const MAX = 900
+        const MAX = 500
         let w = img.width, h = img.height
         if (w > MAX) { h = Math.round(h * MAX / w); w = MAX }
         const canvas = document.createElement('canvas')
         canvas.width = w; canvas.height = h
         canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.72)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.50)
         URL.revokeObjectURL(url)
         res({ name: file.name, type: 'image/jpeg', data: dataUrl.split(',')[1], url: dataUrl })
       }
@@ -199,14 +199,18 @@ export default function AuditPage() {
         return
       }
 
-      // File upload mode: route through Vercel API proxy
+      // File upload mode: split into batches of 2 images to stay under 4.5MB Vercel limit
+      const allLp = lpB64.map(b => ({ name: b.name, type: b.type, data: b.data }))
+      const allCr = crB64.map(b => ({ name: b.name, type: b.type, data: b.data }))
+
+      // Send first batch (max 1 LP + 1 CR) for main analysis
       const res = await fetch('/api/analyze-files', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client: c,
-          lpImages: lpB64.map(b => ({ name: b.name, type: b.type, data: b.data })),
-          crImages: crB64.map(b => ({ name: b.name, type: b.type, data: b.data }))
+          lpImages: allLp.slice(0, 1),
+          crImages: allCr.slice(0, 2)
         })
       })
       if (!res.ok) {
