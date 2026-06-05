@@ -175,51 +175,134 @@ export default function AuditPage() {
 
   async function startAudit() {
     setPhase('analyzing')
-    const steps = ['Bilder werden analysiert…','CI und Farben werden geprüft…','Typografie wird bewertet…','CRO und Copy…','Entscheidung wird getroffen…']
+    const steps = ['Bilder werden vorbereitet…','CI und Farben werden geprüft…','Typografie wird bewertet…','CRO und Copy…','Entscheidung wird getroffen…']
     let si = 0
     setLoadStep(steps[0])
     const iv = setInterval(() => { si++; if (si < steps.length) setLoadStep(steps[si]) }, 1200)
 
-    const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
     const c = client || {}
     const tones = (c.tones || []).join(', ') || 'n/a'
+    const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
 
     try {
-      // URL mode: fetch HTML analysis from backend
+      // URL mode
       if (lpUrlMode && lpUrl.trim()) {
         const res = await fetch('/api/analyze-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: lpUrl.trim(), client })
+          body: JSON.stringify({ url: lpUrl.trim(), client: c })
         })
         const data = await res.json()
         clearInterval(iv)
-        setResult(data.result || { approved: false, verdict_headline: 'Fehler bei der URL-Analyse.', verdict_reason: data.error || 'Unbekannter Fehler.', score: 0, issues: [] })
+        setResult(data.result || { approved: false, verdict_headline: 'Fehler bei URL-Analyse.', verdict_reason: data.error || 'Unbekannter Fehler.', score: 0, issues: [] })
         setPhase('result')
         return
       }
 
-      // File upload mode: split into batches of 2 images to stay under 4.5MB Vercel limit
-      const allLp = lpB64.map(b => ({ name: b.name, type: b.type, data: b.data }))
-      const allCr = crB64.map(b => ({ name: b.name, type: b.type, data: b.data }))
+      // File upload mode – send directly to Anthropic with API key
+      // Anthropic allows this from browser with correct headers
+      const prompt = `Du bist ein Senior Marketing- und Conversion-Experte mit tiefem Wissen in Brand Design, UX und Performance Marketing. Du arbeitest wie ein erfahrener Teamleiter: du kennst die Regeln, aber du denkst auch mit.
 
-      // Send first batch (max 1 LP + 1 CR) for main analysis
-      const res = await fetch('/api/analyze-files', {
+KUNDENPROFIL:
+- Kunde: ${c.name || 'unbekannt'} | Branche: ${c.industry || 'n/a'}
+- Zielgruppe: ${c.audience || 'n/a'} | LP-Ziel: ${c.goal || 'n/a'}
+- USP: ${c.usp || 'n/a'}
+- CI-Farben: Primär ${c.color_primary || 'n/a'}, Sekundär ${c.color_secondary || 'n/a'}, Akzent ${c.color_accent || 'n/a'}
+- Schrift: ${c.font || 'n/a'} | Tonalität: ${tones}
+- Verbote: ${c.donts || 'keine'}
+
+${lpB64.length > 0 ? `LANDINGPAGE CHECKLISTE – prüfe jeden Punkt:
+□ Onepage-Branding deaktiviert (kein Onepage-Logo sichtbar)
+□ Favicon als Logo-PNG hinterlegt
+□ Seitenname ohne Begriffe wie LP/Landingpage/Funnel
+□ Keine Platzhaltertexte (Lorem ipsum, [TEXT], Dummy)
+□ CI-Farben korrekt: ${c.color_primary}, ${c.color_secondary}, ${c.color_accent}
+□ Logo entspricht Corporate Design
+□ Schriftart "${c.font||'n/a'}" verwendet, max. 2 Schriftarten
+□ Buchstabenabstände und Zeilenabstände einheitlich (1–1,5)
+□ Hoher Farbkontrast bei übereinanderliegenden Elementen
+□ Kein Waisenkind (einzelnes Wort letzte Zeile)
+□ Headlines max. 2 Zeilen, deutlich größer/dicker als Fließtext
+□ Max. 1 hervorgehobene Stelle pro Headline
+□ Abstände zwischen Elementen einheitlich
+□ Textschriftgröße mind. 16px
+□ Keine leeren Flächen im 2-Spalten-Layout
+□ Buttons einheitlich, kein übertriebener Hover-Effekt
+□ Einheitlicher Button-Text
+□ Impressum und Datenschutz verlinkt
+□ Emojis/Icons passen zum Text
+□ URL ohne Funnel-Begriffe (kein "leadmagnet", "autowebinar")
+□ Modalboxen/Popups umbenannt` : ''}
+
+${crB64.length > 0 ? `CREATIVES CHECKLISTE – prüfe jeden Punkt:
+□ Keine Rechtschreibfehler im sichtbaren Text
+□ CI-Farben korrekt: ${c.color_primary}, ${c.color_secondary}, ${c.color_accent}
+□ Logo entspricht Corporate Design
+□ Schriftart "${c.font||'n/a'}" verwendet, max. 2 Schriftarten
+□ Buchstabenabstände einheitlich
+□ Hoher Kontrast bei übereinanderliegenden Farben/Texten
+□ Texte bündig oder zentriert mit anderen Elementen
+□ Overlays gehen bis zu den Bildrändern (keine schmalen Ränder)
+□ Kein Waisenkind (einzelnes Wort letzte Zeile)
+□ Format korrekt: 1:1 (1080×1080px) oder Story 9:16 (1080×1920px)
+□ Kein Maus-klickt-Button, kein Play-Button dargestellt
+□ Schriftgröße mind. 22px
+□ Keine unnötigen leeren Flächen
+□ Schrift gut lesbar, nicht zu verschnörkelt
+□ Maximal 3 verschiedene Schriftgrößen` : ''}
+
+ZUSÄTZLICH – denke als Conversion-Experte mit:
+- Ist die Hauptbotschaft in 3 Sekunden klar?
+- Ist der CTA stark, prominent und above the fold?
+- Fehlen Trust-Signale (Testimonials, Zahlen, Social Proof)?
+- Wirkt die Headline überzeugend für "${c.audience || 'n/a'}"?
+- Passt der emotionale Ton zu "${tones}"?
+- Was würde die Conversion konkret am meisten verbessern?
+
+Sei direkt – beschreibe was du wirklich im Bild siehst. Keine theoretischen Vermutungen.
+
+FREIGABE: approved=true nur wenn keine Fehler und max. 2 Warnungen.
+
+Antworte NUR mit JSON (keine Backticks):
+{"approved":true,"verdict_headline":"...","verdict_reason":"...","score":1-100,"issues":[{"type":"error|warning|cro|ci|copy","category":"LP|Creative|CI|CRO|Copy","title":"...","description":"was du konkret siehst","fix":"konkrete Maßnahme"}]}`
+
+      const msgParts = [{ type: 'text', text: prompt }]
+      lpB64.forEach((img, i) => {
+        msgParts.push({ type: 'text', text: `Landing Page Screenshot ${i+1}:` })
+        msgParts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
+      })
+      crB64.forEach((img, i) => {
+        msgParts.push({ type: 'text', text: `Creative ${i+1}:` })
+        msgParts.push({ type: 'image', source: { type: 'base64', media_type: img.type || 'image/jpeg', data: img.data } })
+      })
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
         body: JSON.stringify({
-          client: c,
-          lpImages: allLp.slice(0, 1),
-          crImages: allCr.slice(0, 2)
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: msgParts }]
         })
       })
+
       if (!res.ok) {
         const errText = await res.text()
-        throw new Error(`API Fehler ${res.status}: ${errText.slice(0, 200)}`)
+        throw new Error(`Claude API: ${res.status} – ${errText.slice(0, 150)}`)
       }
+
       const data = await res.json()
       clearInterval(iv)
-      setResult(data.result || { approved: false, verdict_headline: 'Keine Antwort erhalten.', verdict_reason: data.error || 'Unbekannter Fehler.', score: 0, issues: [] })
+      const txt = data.content?.map(b => b.text || '').join('') || ''
+      let parsed
+      try { parsed = JSON.parse(txt.replace(/```json|```/g, '').trim()) } catch { parsed = null }
+      setResult(parsed || { approved: false, verdict_headline: 'Antwort konnte nicht verarbeitet werden.', verdict_reason: txt.slice(0, 200) || 'Leere Antwort.', score: 0, issues: [] })
+
     } catch(e) {
       clearInterval(iv)
       setResult({ approved: false, verdict_headline: 'Analyse fehlgeschlagen.', verdict_reason: e.message || 'Unbekannter Fehler.', score: 0, issues: [{ type: 'error', category: 'Technisch', title: 'Fehler', description: e.message, fix: 'Seite neu laden und nochmal versuchen.' }] })
