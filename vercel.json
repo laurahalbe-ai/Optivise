@@ -1,5 +1,11 @@
 {
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "framework": null,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/analyze-url",
+      "destination": "/api/analyze-url.js"
+    }
   ]
 }
