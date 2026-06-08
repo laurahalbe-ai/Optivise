@@ -101,7 +101,7 @@ export default function DashboardPage() {
         ) : (
           <div className={styles.grid}>
             {clients.map(client => (
-              <div key={client.id} className={styles.clientCard} onClick={() => navigate(`/audit/${client.id}`)}>
+              <div key={client.id} className={styles.clientCard} onClick={() => navigate(`/client/${client.id}`)}>
                 <div className={styles.cardTop}>
                   <div className={styles.ava} style={{ background: avatarColor(client.id) + '22', color: avatarColor(client.id) }}>
                     {initials(client.name)}
