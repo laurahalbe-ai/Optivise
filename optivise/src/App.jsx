@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import AuthPage from './pages/AuthPage'
 import DashboardPage from './pages/DashboardPage'
+import ClientPage from './pages/ClientPage'
 import AuditPage from './pages/AuditPage'
 
 function ProtectedRoute({ children }) {
@@ -26,6 +27,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<PublicRoute><AuthPage /></PublicRoute>} />
         <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+        <Route path="/client/:clientId" element={<ProtectedRoute><ClientPage /></ProtectedRoute>} />
         <Route path="/audit/:clientId" element={<ProtectedRoute><AuditPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
