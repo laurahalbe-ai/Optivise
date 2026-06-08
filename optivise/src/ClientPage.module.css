@@ -1,0 +1,86 @@
+.wrap { min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; }
+
+.header {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 20px;
+  background: var(--bg-1); border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.clientHead { display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; }
+.ava { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.clientName { font-size: 14px; font-weight: 500; }
+.clientInd { font-size: 11px; color: var(--text-3); }
+
+.tabs {
+  display: flex; align-items: center; gap: 2px;
+  padding: 0 20px;
+  background: var(--bg-1); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 12px 14px; font-size: 13px; font-weight: 500;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-2); font-family: var(--font);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all .15s; white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tabOn { color: var(--purple-2) !important; border-bottom-color: var(--purple) !important; }
+.tabSpacer { flex: 1; }
+
+.content { flex: 1; overflow-y: auto; padding: 24px 20px; max-width: 700px; margin: 0 auto; width: 100%; }
+
+.empty { text-align: center; padding: 60px 20px; }
+.emptyIcon { font-size: 36px; margin-bottom: 12px; }
+.emptyTitle { font-size: 15px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; }
+.emptySub { font-size: 13px; color: var(--text-3); }
+
+.auditList { display: flex; flex-direction: column; gap: 8px; }
+.auditCard {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 16px;
+  cursor: pointer; transition: all .15s;
+}
+.auditCard:hover { border-color: var(--border-2); transform: translateY(-1px); }
+.auditVerdict {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 500; flex-shrink: 0;
+}
+.verdictOk { background: var(--green-bg); color: var(--green); }
+.verdictNo { background: var(--red-bg); color: var(--red); }
+.auditInfo { flex: 1; min-width: 0; }
+.auditTitle { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.auditMeta { display: flex; gap: 6px; font-size: 11px; color: var(--text-3); }
+.auditScore { font-size: 18px; font-weight: 500; flex-shrink: 0; }
+
+.fbSection { margin-bottom: 28px; }
+.fbSectionHead { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.fbIcon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.fbTitle { font-size: 14px; font-weight: 600; }
+.fbSub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.fbInput { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.fbInputRow { display: flex; gap: 8px; }
+.fbList { display: flex; flex-direction: column; gap: 8px; }
+.fbItem { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px; }
+.fbItemHead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.fbCat { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+.fbDate { font-size: 10px; color: var(--text-3); margin-left: auto; }
+.fbRemove { background: none; border: none; cursor: pointer; color: var(--text-3); font-size: 11px; padding: 2px 4px; border-radius: 4px; font-family: var(--font); }
+.fbRemove:hover { background: var(--red-bg); color: var(--red); }
+.fbText { font-size: 12px; color: var(--text-2); line-height: 1.6; }
+
+.brandGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.brandCard { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+.brandCardTitle { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); margin-bottom: 12px; }
+.colorRow { display: flex; gap: 12px; flex-wrap: wrap; }
+.colorItem { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.colorDot { width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.1); }
+.colorLabel { font-size: 10px; color: var(--text-3); }
+.colorHex { font-size: 10px; font-family: var(--font-mono); color: var(--text-2); }
+.fontPreview { min-height: 60px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.toneRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.tonePill { font-size: 11px; padding: 3px 10px; background: var(--purple-bg); color: var(--purple-2); border-radius: 20px; }
